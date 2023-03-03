@@ -31,6 +31,51 @@ GIZMO_TRANSLATE = {
     LINE_LENGTH = 0.125
 }
 
+local function intersect_line_rect(x1, y1, x2, y2, rect_x, rect_y, rect_width, rect_height)
+    local points = {}
+
+    -- Calculate the line equation
+    local m = (y2 - y1) / (x2 - x1)
+    local b = y1 - m * x1
+
+    -- Calculate the four edges of the rectangle
+    local left = rect_x
+    local right = rect_x + rect_width
+    local top = rect_y
+    local bottom = rect_y + rect_height
+
+    -- Check for intersection with left edge
+    local ix = left
+    local iy = m * ix + b
+    if iy >= top and iy <= bottom then
+        table.insert(points, {x = ix, y = iy})
+    end
+
+    -- Check for intersection with right edge
+    ix = right
+    iy = m * ix + b
+    if iy >= top and iy <= bottom then
+        table.insert(points, {x = ix, y = iy})
+    end
+
+    -- Check for intersection with top edge
+    iy = top
+    ix = (iy - b) / m
+    if ix >= left and ix <= right then
+        table.insert(points, {x = ix, y = iy})
+    end
+
+    -- Check for intersection with bottom edge
+    iy = bottom
+    ix = (iy - b) / m
+    if ix >= left and ix <= right then
+        table.insert(points, {x = ix, y = iy})
+    end
+
+    return points
+end
+
+
 ---@param g gizmo
 function gizmo_translate_get_axis_at_mouse(g, mouse_x, mouse_y)
     local center_spos = g.center_spos
@@ -42,9 +87,9 @@ function gizmo_translate_get_axis_at_mouse(g, mouse_x, mouse_y)
 
     local ow = GIZMO_TRANSLATE.CLICK_WIDTH
 
-    local xd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.x_end_spos.x, g.x_end_spos.y)
-    local yd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.y_end_spos.x, g.y_end_spos.y)
-    local zd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.z_end_spos.x, g.z_end_spos.y)
+    local xd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.screen_pos.X.x, g.screen_pos.X.y)
+    local yd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.screen_pos.Y.x, g.screen_pos.Y.y)
+    local zd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y)
 
     local click_x = xd < ow and xd < yd and xd < zd
     local click_y = yd < ow and yd < xd and yd < zd
@@ -116,17 +161,28 @@ end
 
 ---@param g gizmo
 function gizmo_translate_draw2d(g)
-    local center_spos = g.center_spos
 
-    --if g.drag_axis then
-    --    local c = GIZMO_TRANSLATE.COLORS[g.drag_axis].GUIDE
-    --    set_color(c[1], c[2], c[3], c[4])
-    --
-    --    local e = g.screen_pos[g.drag_axis]
-    --    local dir = (e - center_spos):normalize()
-    --
-    --
-    --end
+    if g.drag_axis then
+        local c = GIZMO_TRANSLATE.COLORS[g.drag_axis].GUIDE
+        set_color(c[1], c[2], c[3], c[4])
+
+        --local e = g.screen_pos[g.drag_axis]
+        local line = g.screen_pos_long[g.drag_axis]
+        draw_line(line[1].x, line[1].y, line[2].x, line[2].y, 3.0)
+        --local dir = (e - center_spos):normalize()
+
+        --local points = intersect_line_rect(
+        --        center_spos.x, center_spos.y,
+        --        e.x, e.y,
+        --        0, 0,
+        --        WIN_W, WIN_H
+        --)
+
+        --if #points == 2 then
+        --    draw_line(points[1].x, points[1].y, points[2].x, points[2].y, 3.0)
+        --    --draw_fancy_line(points[1].x, points[1].y, points[2].x, points[2].y, )
+        --end
+    end
 
     if g.cull then
         return
@@ -166,18 +222,19 @@ function gizmo_translate_draw2d(g)
         colors_outline[hovered_axis] = GIZMO_TRANSLATE.COLORS[hovered_axis].HOVER_OUTLINE
     end
 
+    local center_spos = g.center_spos
     if x_axis_distance < y_axis_distance and x_axis_distance < z_axis_distance then
-        draw_fancy_line(center_spos.x, center_spos.y, g.z_end_spos.x, g.z_end_spos.y, fw, ow, colors_fill.Z, colors_outline.Z)
-        draw_fancy_line(center_spos.x, center_spos.y, g.y_end_spos.x, g.y_end_spos.y, fw, ow, colors_fill.Y, colors_outline.Y)
-        draw_fancy_line(center_spos.x, center_spos.y, g.x_end_spos.x, g.x_end_spos.y, fw, ow, colors_fill.X, colors_outline.X)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y, fw, ow, colors_fill.Z, colors_outline.Z)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Y.x, g.screen_pos.Y.y, fw, ow, colors_fill.Y, colors_outline.Y)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.X.x, g.screen_pos.X.y, fw, ow, colors_fill.X, colors_outline.X)
     elseif y_axis_distance < z_axis_distance and y_axis_distance < x_axis_distance then
-        draw_fancy_line(center_spos.x, center_spos.y, g.z_end_spos.x, g.z_end_spos.y, fw, ow, colors_fill.Z, colors_outline.Z)
-        draw_fancy_line(center_spos.x, center_spos.y, g.x_end_spos.x, g.x_end_spos.y, fw, ow, colors_fill.X, colors_outline.X)
-        draw_fancy_line(center_spos.x, center_spos.y, g.y_end_spos.x, g.y_end_spos.y, fw, ow, colors_fill.Y, colors_outline.Y)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y, fw, ow, colors_fill.Z, colors_outline.Z)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.X.x, g.screen_pos.X.y, fw, ow, colors_fill.X, colors_outline.X)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Y.x, g.screen_pos.Y.y, fw, ow, colors_fill.Y, colors_outline.Y)
     else
-        draw_fancy_line(center_spos.x, center_spos.y, g.x_end_spos.x, g.x_end_spos.y, fw, ow, colors_fill.X, colors_outline.X)
-        draw_fancy_line(center_spos.x, center_spos.y, g.y_end_spos.x, g.y_end_spos.y, fw, ow, colors_fill.Y, colors_outline.Y)
-        draw_fancy_line(center_spos.x, center_spos.y, g.z_end_spos.x, g.z_end_spos.y, fw, ow, colors_fill.Z, colors_outline.Z)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.X.x, g.screen_pos.X.y, fw, ow, colors_fill.X, colors_outline.X)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Y.x, g.screen_pos.Y.y, fw, ow, colors_fill.Y, colors_outline.Y)
+        draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y, fw, ow, colors_fill.Z, colors_outline.Z)
     end
 end
 
@@ -188,14 +245,32 @@ function gizmo_translate_update3d(g)
     local camera_pos = vec3(get_camera_info().pos)
     local dist = g.position:distance(camera_pos)
 
-    local x_end_pos = g.position + g.rotation:transform(axis.positive_x) * GIZMO_TRANSLATE.LINE_LENGTH * dist
+    local x_dir = g.rotation:transform(axis.positive_x)
+    local x_end_pos = g.position + x_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist
     local x_end_spos = vec3(get_screen_pos(x_end_pos.x, x_end_pos.y, x_end_pos.z))
 
-    local y_end_pos = g.position + g.rotation:transform(axis.positive_y) * GIZMO_TRANSLATE.LINE_LENGTH * dist
+    local x_long_end_pos = g.position + x_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist * 10
+    local x_long_start_pos = g.position + x_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist * -10
+    local x_long_end_spos = vec3(get_screen_pos(x_long_end_pos.x, x_long_end_pos.y, x_long_end_pos.z))
+    local x_long_start_spos = vec3(get_screen_pos(x_long_start_pos.x, x_long_start_pos.y, x_long_start_pos.z))
+
+    local y_dir = g.rotation:transform(axis.positive_y)
+    local y_end_pos = g.position + y_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist
     local y_end_spos = vec3(get_screen_pos(y_end_pos.x, y_end_pos.y, y_end_pos.z))
 
-    local z_end_pos = g.position + g.rotation:transform(axis.positive_z) * GIZMO_TRANSLATE.LINE_LENGTH * dist
+    local y_long_end_pos = g.position + y_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist * 10
+    local y_long_start_pos = g.position + y_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist * -10
+    local y_long_end_spos = vec3(get_screen_pos(y_long_end_pos.x, y_long_end_pos.y, y_long_end_pos.z))
+    local y_long_start_spos = vec3(get_screen_pos(y_long_start_pos.x, y_long_start_pos.y, y_long_start_pos.z))
+
+    local z_dir = g.rotation:transform(axis.positive_z)
+    local z_end_pos = g.position + z_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist
     local z_end_spos = vec3(get_screen_pos(z_end_pos.x, z_end_pos.y, z_end_pos.z))
+
+    local z_long_end_pos = g.position + z_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist * 10
+    local z_long_start_pos = g.position + z_dir * GIZMO_TRANSLATE.LINE_LENGTH * dist * -10
+    local z_long_end_spos = vec3(get_screen_pos(z_long_end_pos.x, z_long_end_pos.y, z_long_end_pos.z))
+    local z_long_start_spos = vec3(get_screen_pos(z_long_start_pos.x, z_long_start_pos.y, z_long_start_pos.z))
 
     -- some part of the gizmo is not going to render properly, disable the whole thing
     g.cull = x_end_spos.z ~= 0 or y_end_spos.z ~= 0 or z_end_spos.z ~= 0
@@ -203,15 +278,16 @@ function gizmo_translate_update3d(g)
     set_color(1.0, 0.0, 0.0, 1.0)
     draw_sphere(g.position.x, g.position.y, g.position.z, 0.05)
 
-    -- TODO: Refactor!
-    g.x_end_spos = vec2(x_end_spos)
-    g.y_end_spos = vec2(y_end_spos)
-    g.z_end_spos = vec2(z_end_spos)
-
     g.screen_pos = {
         X = vec2(x_end_spos),
         Y = vec2(y_end_spos),
         Z = vec2(z_end_spos)
+    }
+
+    g.screen_pos_long = {
+        X = {vec2(x_long_start_spos), vec2(x_long_end_spos)},
+        Y = {vec2(y_long_start_spos), vec2(y_long_end_spos)},
+        Z = {vec2(z_long_start_spos), vec2(z_long_end_spos)}
     }
 
     g.center_spos = center_spos
