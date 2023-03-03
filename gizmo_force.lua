@@ -105,7 +105,6 @@ function gizmo_force_mouse_move(g, mouse_x, mouse_y)
     local center_spos = vec2(get_screen_pos(g.position.x, g.position.y, g.position.z))
 
     if g.drag_axis == "F" or g.drag_axis == "FZ" then
-
         local force_scale = g.force_render_scale or 25.0
 
         local v
@@ -135,6 +134,7 @@ function gizmo_force_mouse_move(g, mouse_x, mouse_y)
             g.force = g.force * (1 + gizmo_delta)
         end
 
+        println("Calling change callback: "..tostring(g.change_callback))
         g.change_callback()
         return
     end

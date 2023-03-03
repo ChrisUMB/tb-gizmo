@@ -105,29 +105,44 @@ end
 ---@param pos_getter fun():vec3 The getter function for the position
 ---@return gizmo The new gizmo, bounded by the getter and setter
 function gizmo.bound_force(force_getter, force_setter, pos_getter)
-    local gizmo = gizmo.new(GIZMO_TYPE.FORCE, pos_getter())
-    gizmo.force = force_getter()
+    local g
+    local s, e = pcall(function()
+        local gizmo = gizmo.new(GIZMO_TYPE.FORCE, pos_getter())
+        --local force = force_getter()
+        --gizmo.force = force:length()
+        --local rot = quat.from_forward(force)
+        --if rot then
+        --    gizmo.rotation = rot:conjugate()
+        --end
 
-    gizmo:on_change(function()
-        local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
-        force_setter(directional_force)
+        gizmo:on_change(function()
+            println("Hello???!?")
+                local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
+                force_setter(directional_force)
+        end)
+
+        gizmo:on_update(function()
+            if gizmo.is_changing then
+                return
+            end
+
+            gizmo.position = pos_getter()
+
+            local current = force_getter()
+            gizmo.force = current:length()
+            local rot = quat.from_forward(current / gizmo.force)
+            println("Force updating to "..tostring(current)..", length: "..tostring(gizmo.force)..", rot: "..tostring(rot))
+            if rot then
+                gizmo.rotation = rot:conjugate()
+            end
+        end)
+        g = gizmo
+
     end)
 
-    gizmo:on_update(function()
-        if gizmo.is_changing then
-            return
-        end
-
-        gizmo.position = pos_getter()
-
-        local current = force_getter()
-        gizmo.force = current:length()
-        local rot = quat.from_forward(current)
-        if rot then
-            gizmo.rotation = rot:conjugate()
-        end
-    end)
-
+    if not s then
+        println("Error setting force: "..tostring(e))
+    end
     return gizmo
 end
 
@@ -147,6 +162,7 @@ end
 
 ---@param change_callback fun() The callback to call when the gizmo is changed
 function gizmo:on_change(change_callback)
+    println("Setting change callback to "..tostring(change_callback))
     self.change_callback = change_callback
 end
 
