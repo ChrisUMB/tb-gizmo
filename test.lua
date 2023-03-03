@@ -4,7 +4,7 @@ remove_hooks("gizmo_test")
 
 local part = fighter.tori():get_part(PART.NAME.L_HAND)
 
-local force_gizmo = gizmo:new(GIZMO_TYPE.FORCE, part:get_position())
+local force_gizmo = gizmo.new(GIZMO_TYPE.FORCE, part:get_position())
 force_gizmo.force = 10.0
 
 force_gizmo:on_change(function()

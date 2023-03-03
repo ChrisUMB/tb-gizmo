@@ -23,13 +23,14 @@ local GIZMO_LIST = {}
 ---@field drag_direction vec3 The direction of the mouse drag
 ---@field previous_mouse_pos vec2 The previous mouse position
 gizmo = {}
+gizmo.__index = gizmo
 
 ---@param type GIZMO_TYPE The type of gizmo
 ---@param position vec3|nil The position of the gizmo
 ---@param rotation quat|nil The rotation of the gizmo
 ---@param is_local boolean|nil True if the position and rotation are local to the parent, false if they are global
 ---@return gizmo The new gizmo
-function gizmo:new(type, position, rotation, is_local)
+function gizmo.new(type, position, rotation, is_local)
     position = position or vec3(0, 0, 0)
     rotation = rotation or quat(0, 0, 0, 1)
     is_local = is_local or false
@@ -49,12 +50,87 @@ function gizmo:new(type, position, rotation, is_local)
         is_changing = false
     }
 
-    setmetatable(result, self)
-    self.__index = self
+    setmetatable(result, gizmo)
 
     table.insert(GIZMO_LIST, result)
     return result
 end
+
+---@param getter fun():vec3 The getter function for the position
+---@param setter fun(vec3) The setter function for the position
+---@return gizmo The new gizmo, bounded by the getter and setter
+function gizmo.bound_translate(getter, setter)
+    local gizmo = gizmo.new(GIZMO_TYPE.TRANSLATE, getter())
+
+    gizmo:on_change(function()
+        setter(gizmo.position)
+    end)
+
+    gizmo:on_update(function()
+        if gizmo.is_changing then
+            return
+        end
+
+        gizmo.position = getter()
+    end)
+
+    return gizmo
+end
+
+---@param rot_getter fun():quat The getter function for the rotation
+---@param rot_setter fun(quat) The setter function for the rotation
+---@param pos_getter fun():vec3 The getter function for the position
+---@return gizmo The new gizmo, bounded by the getter and setter
+function gizmo.bound_rotate(rot_getter, rot_setter, pos_getter)
+    local gizmo = gizmo.new(GIZMO_TYPE.ROTATE, rot_getter())
+
+    gizmo:on_change(function()
+        rot_setter(gizmo.rotation)
+    end)
+
+    gizmo:on_update(function()
+        if gizmo.is_changing then
+            return
+        end
+
+        gizmo.rotation = rot_getter()
+        gizmo.position = pos_getter()
+    end)
+
+    return gizmo
+end
+
+---@param force_getter fun():vec3 The getter function for the force
+---@param force_setter fun(vec3) The setter function for the force
+---@param pos_getter fun():vec3 The getter function for the position
+---@return gizmo The new gizmo, bounded by the getter and setter
+function gizmo.bound_force(force_getter, force_setter, pos_getter)
+    local gizmo = gizmo.new(GIZMO_TYPE.FORCE, pos_getter())
+    gizmo.force = force_getter()
+
+    gizmo:on_change(function()
+        local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
+        force_setter(directional_force)
+    end)
+
+    gizmo:on_update(function()
+        if gizmo.is_changing then
+            return
+        end
+
+        gizmo.position = pos_getter()
+
+        local current = force_getter()
+        gizmo.force = current:length()
+        local rot = quat.from_forward(current)
+        if rot then
+            gizmo.rotation = rot:conjugate()
+        end
+    end)
+
+    return gizmo
+end
+
 
 ---@param g gizmo
 ---@return boolean True if the gizmo was removed, false otherwise
