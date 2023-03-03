@@ -41,7 +41,7 @@ function gizmo_rotate_get_axis_at_mouse(g, mouse_x, mouse_y)
     local min_dist
     local min_axis
 
-    for i = #segments / GIZMO_ROTATE.COUNT_DIV, #segments do
+    for i = 1, #segments do
         local segment = segments[i]
 
         if not segment.cull then
@@ -150,27 +150,37 @@ function gizmo_rotate_draw2d(g)
         colors_outline[hovered_axis] = GIZMO_ROTATE.COLORS[hovered_axis].HOVER_OUTLINE
     end
 
-    for i = #segments / GIZMO_ROTATE.COUNT_DIV, #segments do
+    local function check_cull(segment)
+        if segment.axis == g.drag_axis then
+            return segment.cull and not segment.cull_by_quota
+        elseif g.drag_axis ~= nil then
+            return true
+        end
+
+        return segment.cull
+    end
+
+    for i = 1, #segments do
         local segment = segments[i]
 
-        if not segment.cull then
-            local axis = segment.axis
-            local spos_1 = segment.spos_1
-            local spos_2 = segment.spos_2
-
-            draw_fancy_line(spos_1.x, spos_1.y, spos_2.x, spos_2.y, fw, ow, nil, colors_outline[axis])
+        if not check_cull(segment) and not segment.override_width then
+            draw_fancy_line(
+                    segment.spos_1.x, segment.spos_1.y,
+                    segment.spos_2.x, segment.spos_2.y,
+                    fw, ow, nil, colors_outline[segment.axis]
+            )
         end
     end
 
-    for i = #segments / GIZMO_ROTATE.COUNT_DIV, #segments do
+    for i = 1, #segments do
         local segment = segments[i]
 
-        if not segment.cull then
-            local axis = segment.axis
-            local spos_1 = segment.spos_1
-            local spos_2 = segment.spos_2
-
-            draw_fancy_line(spos_1.x, spos_1.y, spos_2.x, spos_2.y, fw, ow, colors_fill[axis], nil)
+        if not check_cull(segment) then
+            draw_fancy_line(
+                    segment.spos_1.x, segment.spos_1.y,
+                    segment.spos_2.x, segment.spos_2.y,
+                    segment.override_width or fw, ow, colors_fill[segment.axis], nil
+            )
         end
     end
 
@@ -236,6 +246,49 @@ function gizmo_rotate_update3d(g)
     table.sort(segments, function(a, b)
         return a.dist > b.dist
     end)
+
+    local axis_quota = {
+        X = GIZMO_ROTATE.SEGMENT_COUNT / 2,
+        Y = GIZMO_ROTATE.SEGMENT_COUNT / 2,
+        Z = GIZMO_ROTATE.SEGMENT_COUNT / 2
+    }
+
+    for i = #segments,1,-1 do
+        local segment = segments[i]
+        local axis = segment.axis
+
+        if axis_quota[axis] > 0 then
+            axis_quota[axis] = axis_quota[axis] - 1
+        elseif not segment.cull then
+            segment.cull = true
+            segment.cull_by_quota = true
+        end
+    end
+
+    -- Create a line going through the center of the gizmo on the axis of rotation
+    if g.drag_axis ~= nil then
+        local directions = {
+            X = axis.positive_x,
+            Y = axis.positive_y,
+            Z = axis.positive_z
+        }
+
+        local direction = directions[g.drag_axis]
+        local start_pos = g.position + direction * dist
+        local end_pos = g.position - direction * dist
+
+        local spos_start = vec3(get_screen_pos(start_pos.x, start_pos.y, start_pos.z))
+        local spos_end = vec3(get_screen_pos(end_pos.x, end_pos.y, end_pos.z))
+
+        table.insert(segments, {
+            spos_1 = vec2(spos_start),
+            spos_2 = vec2(spos_end),
+            dist = start_pos:distance(camera_pos),
+            axis = g.drag_axis,
+            cull = spos_start.z ~= 0 or spos_end.z ~= 0,
+            override_width = 2.0
+        })
+    end
 
     g.segments = segments
     g.screen_pos = points
