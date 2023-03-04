@@ -142,9 +142,8 @@ end
 ---@return gizmo The new gizmo, bounded by the getter and setter
 function gizmo.bound_force(force_getter, force_setter, pos_getter)
     local g
-    local s, e = pcall(function()
         local gizmo = gizmo.new(GIZMO_TYPE.FORCE, pos_getter())
-        --local force = force_getter()
+
         --gizmo.force = force:length()
         --local rot = quat.from_forward(force)
         --if rot then
@@ -158,32 +157,35 @@ function gizmo.bound_force(force_getter, force_setter, pos_getter)
         end)
 
         gizmo:on_update(function()
-            if gizmo.is_changing then
-                return
-            end
+            local s, e = pcall(function()
+                if gizmo.is_changing then
+                    return
+                end
 
-            gizmo.position = pos_getter()
+                gizmo.position = pos_getter()
 
-            local force = force_getter()
-            local length = force:length()
-            gizmo.force = length
-            if length == 0 then
-                return
-            end
+                local force = force_getter()
+                local length = force:length()
+                gizmo.force = length
+                if length == 0 then
+                    return
+                end
 
-            local direction = force / length
-            local rot = quat.from_forward(direction)
-            if rot then
-                gizmo.rotation = rot
+                local direction = force / length
+                local rot = quat.from_forward(direction)
+                if rot then
+                    gizmo.rotation = rot
+                end
+            end)
+            if not s then
+                println("Error setting force: "..tostring(e))
             end
         end)
+
+        gizmo.update_callback()
         g = gizmo
 
-    end)
 
-    if not s then
-        println("Error setting force: "..tostring(e))
-    end
     return gizmo
 end
 
