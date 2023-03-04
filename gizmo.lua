@@ -173,14 +173,9 @@ function gizmo.bound_force(force_getter, force_setter, pos_getter)
 
             local direction = force / length
             local rot = quat.from_forward(direction)
-            --local rot_tbl = quaternionFromForward(direction)
-            --if rot_tbl then
-            --    local rot = quat(rot_tbl[2], rot_tbl[3], rot_tbl[4], rot_tbl[1])
-            --    println("Force updating to "..tostring(force)..", length: "..tostring(gizmo.force)..", rot: "..tostring(rot))
-                if rot then
-                    gizmo.rotation = rot
-                end
-            --end
+            if rot then
+                gizmo.rotation = rot
+            end
         end)
         g = gizmo
 
