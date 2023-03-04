@@ -100,6 +100,42 @@ function gizmo.bound_rotate(rot_getter, rot_setter, pos_getter)
     return gizmo
 end
 
+function quaternionFromForward(forward)
+    -- Check if forward is nil or has zero length
+    if not forward --[[or #forward == 0]] then
+        return nil
+    end
+
+    -- Choose an arbitrary up vector that is not parallel to forward
+    local up = {0, 1, 0}
+    if math.abs(forward[2]) > 0.99 then
+        up = {1, 0, 0}
+    end
+
+    -- Calculate the right vector by taking the cross product of forward and up
+    local right = {forward[2] * up[3] - forward[3] * up[2],
+                   forward[3] * up[1] - forward[1] * up[3],
+                   forward[1] * up[2] - forward[2] * up[1]}
+
+    -- Normalize the right vector
+    local length = math.sqrt(right[1]^2 + right[2]^2 + right[3]^2)
+    right = {right[1]/length, right[2]/length, right[3]/length}
+
+    -- Calculate the up vector by taking the cross product of right and forward
+    up = {right[2] * forward[3] - right[3] * forward[2],
+          right[3] * forward[1] - right[1] * forward[3],
+          right[1] * forward[2] - right[2] * forward[1]}
+
+    -- Calculate the w, x, y, z components of the quaternion
+    local w = math.sqrt(1 + right[1] + up[2] + forward[3]) / 2
+    local x = (up[3] - forward[2]) / (4*w)
+    local y = (forward[1] - right[3]) / (4*w)
+    local z = (right[2] - up[1]) / (4*w)
+
+    -- Return the quaternion as a table
+    return {w, x, y, z}
+end
+
 ---@param force_getter fun():vec3 The getter function for the force
 ---@param force_setter fun(vec3) The setter function for the force
 ---@param pos_getter fun():vec3 The getter function for the position
@@ -116,9 +152,9 @@ function gizmo.bound_force(force_getter, force_setter, pos_getter)
         --end
 
         gizmo:on_change(function()
-            println("Hello???!?")
-                local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
-                force_setter(directional_force)
+            --local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
+            local directional_force = gizmo.rotation:positive_z() * gizmo.force
+            force_setter(directional_force)
         end)
 
         gizmo:on_update(function()
@@ -128,13 +164,23 @@ function gizmo.bound_force(force_getter, force_setter, pos_getter)
 
             gizmo.position = pos_getter()
 
-            local current = force_getter()
-            gizmo.force = current:length()
-            local rot = quat.from_forward(current / gizmo.force)
-            println("Force updating to "..tostring(current)..", length: "..tostring(gizmo.force)..", rot: "..tostring(rot))
-            if rot then
-                gizmo.rotation = rot:conjugate()
+            local force = force_getter()
+            local length = force:length()
+            gizmo.force = length
+            if length == 0 then
+                return
             end
+
+            local direction = force / length
+            local rot = quat.from_forward(direction)
+            --local rot_tbl = quaternionFromForward(direction)
+            --if rot_tbl then
+            --    local rot = quat(rot_tbl[2], rot_tbl[3], rot_tbl[4], rot_tbl[1])
+            --    println("Force updating to "..tostring(force)..", length: "..tostring(gizmo.force)..", rot: "..tostring(rot))
+                if rot then
+                    gizmo.rotation = rot
+                end
+            --end
         end)
         g = gizmo
 
@@ -162,7 +208,6 @@ end
 
 ---@param change_callback fun() The callback to call when the gizmo is changed
 function gizmo:on_change(change_callback)
-    println("Setting change callback to "..tostring(change_callback))
     self.change_callback = change_callback
 end
 

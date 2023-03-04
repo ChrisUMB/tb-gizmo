@@ -106,16 +106,10 @@ function gizmo_force_mouse_move(g, mouse_x, mouse_y)
 
     if g.drag_axis == "F" or g.drag_axis == "FZ" then
         local force_scale = g.force_render_scale or 25.0
+        local force = g.force / force_scale
+        if math.abs(force) < 0.01 then force = 0.01 end
 
-        local v
-
-        if g.force ~= 0 then
-            v = vec3(0, 0, g.force / force_scale)
-        else
-            v = vec3(0, 0, 0.01)
-        end
-
-        v = g.position + g.rotation:conjugate():transform(v)
+        local v = g.position + g.rotation:positive_z() * force
 
         local start_screen_pos = vec2(get_screen_pos(g.position.x, g.position.y, g.position.z))
         local end_screen_pos = vec2(get_screen_pos(v.x, v.y, v.z))
@@ -134,7 +128,6 @@ function gizmo_force_mouse_move(g, mouse_x, mouse_y)
             g.force = g.force * (1 + gizmo_delta)
         end
 
-        println("Calling change callback: "..tostring(g.change_callback))
         g.change_callback()
         return
     end
@@ -164,7 +157,7 @@ function gizmo_force_mouse_move(g, mouse_x, mouse_y)
         axis = g.rotation:transform(axis)
     end
 
-    g.rotation = g.rotation:rotate(angle_delta, axis)
+    g.rotation = g.rotation:conjugate():rotate(angle_delta, axis):conjugate()
     g.change_callback()
 end
 
@@ -247,7 +240,8 @@ function gizmo_force_update3d(g)
     local segments = {}
 
     local force_scale = g.force_render_scale or 25.0
-    local v = g.rotation:conjugate():transform(vec3(0, 0, g.force / force_scale)) / 16.0
+    --local v = g.rotation:conjugate():transform(vec3(0, 0, g.force / force_scale)) / 16.0
+    local v = g.rotation:positive_z() * (g.force / force_scale) / 16.0
     local fz = g.force == 0
 
     if fz then
