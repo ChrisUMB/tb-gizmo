@@ -10,7 +10,6 @@ force_gizmo.force = 10.0
 force_gizmo:on_change(function()
     local rotated = force_gizmo.rotation:conjugate():transform(vec3(0, 0, force_gizmo.force))
     part:set_linear_velocity(rotated)
-    set_ghost(0)
     set_ghost(2)
 end)
 
