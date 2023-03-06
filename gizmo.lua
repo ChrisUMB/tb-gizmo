@@ -1,6 +1,7 @@
 dofile("dsk/dsk.lua")
 dofile("gizmo/gizmo_translate.lua")
 dofile("gizmo/gizmo_rotate.lua")
+dofile("gizmo/gizmo_scale.lua")
 dofile("gizmo/gizmo_force.lua")
 
 remove_hooks("gizmo")
@@ -100,40 +101,27 @@ function gizmo.bound_rotate(rot_getter, rot_setter, pos_getter)
     return gizmo
 end
 
-function quaternionFromForward(forward)
-    -- Check if forward is nil or has zero length
-    if not forward --[[or #forward == 0]] then
-        return nil
-    end
+---@param scale_getter fun():vec3 The getter function for the scale
+---@param scale_setter fun(vec3) The setter function for the scale
+---@param pos_getter fun():vec3 The getter function for the position
+---@return gizmo The new gizmo, bounded by the getter and setter
+function gizmo.bound_scale(scale_getter, scale_setter, pos_getter)
+    local gizmo = gizmo.new(GIZMO_TYPE.SCALE, scale_getter())
 
-    -- Choose an arbitrary up vector that is not parallel to forward
-    local up = {0, 1, 0}
-    if math.abs(forward[2]) > 0.99 then
-        up = {1, 0, 0}
-    end
+    gizmo:on_change(function()
+        scale_setter(gizmo.scale)
+    end)
 
-    -- Calculate the right vector by taking the cross product of forward and up
-    local right = {forward[2] * up[3] - forward[3] * up[2],
-                   forward[3] * up[1] - forward[1] * up[3],
-                   forward[1] * up[2] - forward[2] * up[1]}
+    gizmo:on_update(function()
+        if gizmo.is_changing then
+            return
+        end
 
-    -- Normalize the right vector
-    local length = math.sqrt(right[1]^2 + right[2]^2 + right[3]^2)
-    right = {right[1]/length, right[2]/length, right[3]/length}
+        gizmo.scale = scale_getter()
+        gizmo.position = pos_getter()
+    end)
 
-    -- Calculate the up vector by taking the cross product of right and forward
-    up = {right[2] * forward[3] - right[3] * forward[2],
-          right[3] * forward[1] - right[1] * forward[3],
-          right[1] * forward[2] - right[2] * forward[1]}
-
-    -- Calculate the w, x, y, z components of the quaternion
-    local w = math.sqrt(1 + right[1] + up[2] + forward[3]) / 2
-    local x = (up[3] - forward[2]) / (4*w)
-    local y = (forward[1] - right[3]) / (4*w)
-    local z = (right[2] - up[1]) / (4*w)
-
-    -- Return the quaternion as a table
-    return {w, x, y, z}
+    return gizmo
 end
 
 ---@param force_getter fun():vec3 The getter function for the force
@@ -227,6 +215,10 @@ local function gizmo_mouse_down(g, mouse_x, mouse_y)
         return gizmo_rotate_mouse_down(g, mouse_x, mouse_y)
     end
 
+    if g.type == GIZMO_TYPE.SCALE then
+        return gizmo_scale_mouse_down(g, mouse_x, mouse_y)
+    end
+
     if g.type == GIZMO_TYPE.FORCE then
         return gizmo_force_mouse_down(g, mouse_x, mouse_y)
     end
@@ -239,6 +231,10 @@ local function gizmo_mouse_up(g, mouse_x, mouse_y)
 
     if g.type == GIZMO_TYPE.ROTATE then
         return gizmo_rotate_mouse_up(g, mouse_x, mouse_y)
+    end
+
+    if g.type == GIZMO_TYPE.SCALE then
+        return gizmo_scale_mouse_up(g, mouse_x, mouse_y)
     end
 
     if g.type == GIZMO_TYPE.FORCE then
@@ -257,6 +253,10 @@ local function gizmo_mouse_move(g, mouse_x, mouse_y)
 
         if g.type == GIZMO_TYPE.ROTATE then
             gizmo_rotate_mouse_move(g, mouse_x, mouse_y)
+        end
+
+        if g.type == GIZMO_TYPE.SCALE then
+            gizmo_scale_mouse_move(g, mouse_x, mouse_y)
         end
 
         if g.type == GIZMO_TYPE.FORCE then
@@ -285,6 +285,10 @@ local function gizmo_draw2d(g)
             gizmo_rotate_draw2d(g)
         end
 
+        if g.type == GIZMO_TYPE.SCALE then
+            gizmo_scale_draw2d(g)
+        end
+
         if g.type == GIZMO_TYPE.FORCE then
             gizmo_force_draw2d(g)
         end
@@ -305,6 +309,10 @@ local function gizmo_update3d(g)
 
         if g.type == GIZMO_TYPE.ROTATE then
             gizmo_rotate_update3d(g)
+        end
+
+        if g.type == GIZMO_TYPE.SCALE then
+            gizmo_scale_update3d(g)
         end
 
         if g.type == GIZMO_TYPE.FORCE then

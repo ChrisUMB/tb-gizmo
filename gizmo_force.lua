@@ -241,7 +241,7 @@ function gizmo_force_update3d(g)
 
     local force_scale = g.force_render_scale or 25.0
     --local v = g.rotation:conjugate():transform(vec3(0, 0, g.force / force_scale)) / 16.0
-    local v = g.rotation:positive_z() * (g.force / force_scale) / 16.0
+    local v = g.rotation:positive_z() * (g.force / force_scale) / 4.0
     local fz = g.force == 0
 
     if fz then
@@ -253,7 +253,7 @@ function gizmo_force_update3d(g)
             cull = false
         })
     else
-        for i = 1, 16 do
+        for i = 1, 4 do
             local a = (v * (i - 1)) + g.position
             local b = (v * i) + g.position
 
