@@ -1,4 +1,7 @@
-dofile("dsk/dsk.lua")
+if not DSK then
+    dofile("dsk/dsk.lua")
+end
+
 dofile("gizmo/gizmo_translate.lua")
 dofile("gizmo/gizmo_rotate.lua")
 dofile("gizmo/gizmo_scale.lua")
@@ -130,53 +133,51 @@ end
 ---@return gizmo The new gizmo, bounded by the getter and setter
 function gizmo.bound_force(force_getter, force_setter, pos_getter)
     local g
-        local gizmo = gizmo.new(GIZMO_TYPE.FORCE, pos_getter())
+    local gizmo = gizmo.new(GIZMO_TYPE.FORCE, pos_getter())
 
-        --gizmo.force = force:length()
-        --local rot = quat.from_forward(force)
-        --if rot then
-        --    gizmo.rotation = rot:conjugate()
-        --end
+    --gizmo.force = force:length()
+    --local rot = quat.from_forward(force)
+    --if rot then
+    --    gizmo.rotation = rot:conjugate()
+    --end
 
-        gizmo:on_change(function()
-            --local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
-            local directional_force = gizmo.rotation:positive_z() * gizmo.force
-            force_setter(directional_force)
-        end)
+    gizmo:on_change(function()
+        --local directional_force = gizmo.rotation:conjugate():transform(vec3(0, 0, gizmo.force))
+        local directional_force = gizmo.rotation:positive_z() * gizmo.force
+        force_setter(directional_force)
+    end)
 
-        gizmo:on_update(function()
-            local s, e = pcall(function()
-                if gizmo.is_changing then
-                    return
-                end
+    gizmo:on_update(function()
+        local s, e = pcall(function()
+            if gizmo.is_changing then
+                return
+            end
 
-                gizmo.position = pos_getter()
+            gizmo.position = pos_getter()
 
-                local force = force_getter()
-                local length = force:length()
-                gizmo.force = length
-                if length == 0 then
-                    return
-                end
+            local force = force_getter()
+            local length = force:length()
+            gizmo.force = length
+            if length == 0 then
+                return
+            end
 
-                local direction = force / length
-                local rot = quat.from_forward(direction)
-                if rot then
-                    gizmo.rotation = rot
-                end
-            end)
-            if not s then
-                println("Error setting force: "..tostring(e))
+            local direction = force / length
+            local rot = quat.from_forward(direction)
+            if rot then
+                gizmo.rotation = rot
             end
         end)
+        if not s then
+            println("Error setting force: " .. tostring(e))
+        end
+    end)
 
-        gizmo.update_callback()
-        g = gizmo
-
+    gizmo.update_callback()
+    g = gizmo
 
     return gizmo
 end
-
 
 ---@param g gizmo
 ---@return boolean True if the gizmo was removed, false otherwise
