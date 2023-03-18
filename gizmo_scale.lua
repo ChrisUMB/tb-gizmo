@@ -92,7 +92,6 @@ function gizmo_scale_get_axis_at_mouse(g, mouse_x, mouse_y)
     local x_axis_distance = (g.position + axis.positive_x - camera_pos):length()
     local y_axis_distance = (g.position + axis.positive_y - camera_pos):length()
     local z_axis_distance = (g.position + axis.positive_z - camera_pos):length()
-    --local center_distance = (g.position - camera_pos):length()
 
     local ow = GIZMO_SCALE.CLICK_WIDTH
 
@@ -179,29 +178,14 @@ end
 ---@param g gizmo
 function gizmo_scale_mouse_move(g, mouse_x, mouse_y)
     if g.drag_axis == "C" then
-        local end_pos_x = g.position + axis.positive_x
-        local end_pos_y = g.position + axis.positive_y
-        local end_pos_z = g.position + axis.positive_z
-
         local start_screen_pos = vec2(get_screen_pos(g.position.x, g.position.y, g.position.z))
-        --local end_screen_pos_x = vec2(get_screen_pos(end_pos_x.x, end_pos_x.y, end_pos_x.z))
-        --local end_screen_pos_y = vec2(get_screen_pos(end_pos_y.x, end_pos_y.y, end_pos_y.z))
-        --local end_screen_pos_z = vec2(get_screen_pos(end_pos_z.x, end_pos_z.y, end_pos_z.z))
-        --
-        --local unit_length_in_screen_space =
-        --    (start_screen_pos:distance(end_screen_pos_x) +
-        --    start_screen_pos:distance(end_screen_pos_y) +
-        --    start_screen_pos:distance(end_screen_pos_z)) / 3.0
 
         local current_mouse_pos = vec2(mouse_x, mouse_y)
         local current_mouse_center_distance = current_mouse_pos:distance(start_screen_pos)
         local initial_mouse_center_distance = g.drag_initial_mouse:distance(start_screen_pos)
         local pct = current_mouse_center_distance / initial_mouse_center_distance
         g.scale = g.drag_initial_scale * pct
-        --local previous_mouse_center_distance = g.previous_mouse_pos:distance(start_screen_pos)
 
-        --local scale = (current_mouse_center_distance - previous_mouse_center_distance) / unit_length_in_screen_space
-        --g.scale = g.scale + scale
         gizmo_scale_clamp(g)
         g.change_callback()
     end
@@ -278,12 +262,8 @@ function gizmo_scale_draw2d(g)
     local center_radius = math.max(x_screen_length, y_screen_length, z_screen_length) * 1.0
 
     set_color(colors_outline.C[1], colors_outline.C[2], colors_outline.C[3], colors_outline.C[4])
-    --draw_disk(center_spos.x, center_spos.y, 0.0, 12.0, 32, 1, 0, 360, 0)
-    --draw_disk(center_spos.x, center_spos.y, 0.0, 20.0, 32, 1, 0, 360, 0)
     draw_disk(center_spos.x, center_spos.y, 0.0 + center_radius, 6.0 + center_radius, 24, 1, 0, 360, 0)
     set_color(colors_fill.C[1], colors_fill.C[2], colors_fill.C[3], colors_fill.C[4])
-    --draw_disk(center_spos.x, center_spos.y, 0.0, 10.0, 32, 1, 0, 360, 0)
-    --draw_disk(center_spos.x, center_spos.y, 0.0, 18.0, 32, 1, 0, 360, 0)
     draw_disk(center_spos.x, center_spos.y, 1.0 + center_radius, 5.0 + center_radius, 24, 1, 0, 360, 0)
 
     if x_axis_distance < y_axis_distance and x_axis_distance < z_axis_distance then
@@ -337,9 +317,6 @@ function gizmo_scale_update3d(g)
 
     -- some part of the gizmo is not going to render properly, disable the whole thing
     g.cull = x_end_spos.z ~= 0 or y_end_spos.z ~= 0 or z_end_spos.z ~= 0
-
-    --set_color(1.0, 0.0, 0.0, 1.0)
-    --draw_sphere(g.position.x, g.position.y, g.position.z, 0.05)
 
     g.screen_pos = {
         X = vec2(x_end_spos),
