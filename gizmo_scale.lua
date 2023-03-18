@@ -92,7 +92,6 @@ function gizmo_scale_get_axis_at_mouse(g, mouse_x, mouse_y)
     local x_axis_distance = (g.position + axis.positive_x - camera_pos):length()
     local y_axis_distance = (g.position + axis.positive_y - camera_pos):length()
     local z_axis_distance = (g.position + axis.positive_z - camera_pos):length()
-    --local center_distance = (g.position - camera_pos):length()
 
     local ow = GIZMO_SCALE.CLICK_WIDTH
 
@@ -101,20 +100,29 @@ function gizmo_scale_get_axis_at_mouse(g, mouse_x, mouse_y)
     local zd = distance_to_segment(mouse_x, mouse_y, center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y)
     local cd = vec2(mouse_x, mouse_y):distance(vec2(center_spos.x, center_spos.y))
 
-    if cd < 22 then
-        return "C"
-    end
-
     local click_x = xd < ow and xd < yd and xd < zd
     local click_y = yd < ow and yd < xd and yd < zd
     local click_z = zd < ow and zd < xd and zd < yd
+    local result
 
     if x_axis_distance < y_axis_distance and x_axis_distance < z_axis_distance then
-        return click_x and "X" or click_y and "Y" or click_z and "Z" or nil
+        result = click_x and "X" or click_y and "Y" or click_z and "Z" or nil
     elseif y_axis_distance < z_axis_distance and y_axis_distance < x_axis_distance then
-        return click_y and "Y" or click_z and "Z" or click_x and "X" or nil
+        result = click_y and "Y" or click_z and "Z" or click_x and "X" or nil
     else
-        return click_z and "Z" or click_x and "X" or click_y and "Y" or nil
+        result = click_z and "Z" or click_x and "X" or click_y and "Y" or nil
+    end
+
+    if result ~= nil then
+        return result
+    end
+
+    local x_screen_length = (g.screen_pos.X - center_spos):length()
+    local y_screen_length = (g.screen_pos.Y - center_spos):length()
+    local z_screen_length = (g.screen_pos.Z - center_spos):length()
+    local center_radius = math.max(x_screen_length, y_screen_length, z_screen_length) * 1.0
+    if cd < center_radius then
+        return "C"
     end
 
     return nil
@@ -132,6 +140,8 @@ function gizmo_scale_mouse_down(g, mouse_x, mouse_y)
     --println("axis_at_mouse "..tostring(axis_at_mouse))
     g.drag_direction = axes[axis_at_mouse]
     g.drag_axis = axis_at_mouse
+    g.drag_initial_scale = g.scale
+    g.drag_initial_mouse = vec2(mouse_x, mouse_y)
 
     if g.drag_axis ~= nil then
         g.is_changing = true
@@ -151,32 +161,32 @@ function gizmo_scale_mouse_up(g, mouse_x, mouse_y)
     end
 
     return false
+end
 
+local function gizmo_scale_clamp(g)
+    if g.scale.x < 0.01 then
+        g.scale.x = 0.01
+    end
+    if g.scale.y < 0.01 then
+        g.scale.y = 0.01
+    end
+    if g.scale.z < 0.01 then
+        g.scale.z = 0.01
+    end
 end
 
 ---@param g gizmo
 function gizmo_scale_mouse_move(g, mouse_x, mouse_y)
     if g.drag_axis == "C" then
-        local end_pos_x = g.position + axis.positive_x
-        local end_pos_y = g.position + axis.positive_y
-        local end_pos_z = g.position + axis.positive_z
-
         local start_screen_pos = vec2(get_screen_pos(g.position.x, g.position.y, g.position.z))
-        local end_screen_pos_x = vec2(get_screen_pos(end_pos_x.x, end_pos_x.y, end_pos_x.z))
-        local end_screen_pos_y = vec2(get_screen_pos(end_pos_y.x, end_pos_y.y, end_pos_y.z))
-        local end_screen_pos_z = vec2(get_screen_pos(end_pos_z.x, end_pos_z.y, end_pos_z.z))
-
-        local unit_length_in_screen_space =
-            (start_screen_pos:distance(end_screen_pos_x) +
-            start_screen_pos:distance(end_screen_pos_y) +
-            start_screen_pos:distance(end_screen_pos_z)) / 3.0
 
         local current_mouse_pos = vec2(mouse_x, mouse_y)
         local current_mouse_center_distance = current_mouse_pos:distance(start_screen_pos)
-        local previous_mouse_center_distance = g.previous_mouse_pos:distance(start_screen_pos)
+        local initial_mouse_center_distance = g.drag_initial_mouse:distance(start_screen_pos)
+        local pct = current_mouse_center_distance / initial_mouse_center_distance
+        g.scale = g.drag_initial_scale * pct
 
-        local scale = (current_mouse_center_distance - previous_mouse_center_distance) / unit_length_in_screen_space
-        g.scale = g.scale + scale
+        gizmo_scale_clamp(g)
         g.change_callback()
     end
 
@@ -196,6 +206,7 @@ function gizmo_scale_mouse_move(g, mouse_x, mouse_y)
     local gizmo_delta = g.drag_direction * screen_delta:normalize():dot(mouse_delta) / screen_delta:length()
 
     g.scale = g.scale + gizmo_delta
+    gizmo_scale_clamp(g)
     g.change_callback()
 end
 
@@ -245,6 +256,16 @@ function gizmo_scale_draw2d(g)
         colors_outline[hovered_axis] = GIZMO_SCALE.COLORS[hovered_axis].HOVER_OUTLINE
     end
 
+    local x_screen_length = (g.screen_pos.X - center_spos):length()
+    local y_screen_length = (g.screen_pos.Y - center_spos):length()
+    local z_screen_length = (g.screen_pos.Z - center_spos):length()
+    local center_radius = math.max(x_screen_length, y_screen_length, z_screen_length) * 1.0
+
+    set_color(colors_outline.C[1], colors_outline.C[2], colors_outline.C[3], colors_outline.C[4])
+    draw_disk(center_spos.x, center_spos.y, 0.0 + center_radius, 6.0 + center_radius, 24, 1, 0, 360, 0)
+    set_color(colors_fill.C[1], colors_fill.C[2], colors_fill.C[3], colors_fill.C[4])
+    draw_disk(center_spos.x, center_spos.y, 1.0 + center_radius, 5.0 + center_radius, 24, 1, 0, 360, 0)
+
     if x_axis_distance < y_axis_distance and x_axis_distance < z_axis_distance then
         draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y, fw, ow, colors_fill.Z, colors_outline.Z)
         draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Y.x, g.screen_pos.Y.y, fw, ow, colors_fill.Y, colors_outline.Y)
@@ -258,13 +279,6 @@ function gizmo_scale_draw2d(g)
         draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Y.x, g.screen_pos.Y.y, fw, ow, colors_fill.Y, colors_outline.Y)
         draw_fancy_line(center_spos.x, center_spos.y, g.screen_pos.Z.x, g.screen_pos.Z.y, fw, ow, colors_fill.Z, colors_outline.Z)
     end
-
-    set_color(colors_outline.C[1], colors_outline.C[2], colors_outline.C[3], colors_outline.C[4])
-    --draw_disk(center_spos.x, center_spos.y, 0.0, 12.0, 32, 1, 0, 360, 0)
-    draw_disk(center_spos.x, center_spos.y, 0.0, 20.0, 32, 1, 0, 360, 0)
-    set_color(colors_fill.C[1], colors_fill.C[2], colors_fill.C[3], colors_fill.C[4])
-    --draw_disk(center_spos.x, center_spos.y, 0.0, 10.0, 32, 1, 0, 360, 0)
-    draw_disk(center_spos.x, center_spos.y, 0.0, 18.0, 32, 1, 0, 360, 0)
 end
 
 ---@param g gizmo
@@ -303,9 +317,6 @@ function gizmo_scale_update3d(g)
 
     -- some part of the gizmo is not going to render properly, disable the whole thing
     g.cull = x_end_spos.z ~= 0 or y_end_spos.z ~= 0 or z_end_spos.z ~= 0
-
-    --set_color(1.0, 0.0, 0.0, 1.0)
-    --draw_sphere(g.position.x, g.position.y, g.position.z, 0.05)
 
     g.screen_pos = {
         X = vec2(x_end_spos),
