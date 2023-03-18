@@ -25,7 +25,7 @@ GIZMO_ROTATE = {
         }
     },
 
-    SEGMENT_COUNT = 64,
+    SEGMENT_COUNT = 32,
     RADIUS = 0.125,
     COUNT_DIV = 3,
 
